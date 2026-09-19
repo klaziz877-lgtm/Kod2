@@ -1,4 +1,4 @@
-import os
+тоimport os
 import time
 import sqlite3
 import telebot
@@ -508,5 +508,6 @@ def admin_actions(call):
         bot.send_message(ADMIN_ID, text, parse_mode="Markdown")
 
 @bot.message_handler(func=lambda m: m.from_user.id == ADMIN_ID and "=" in m.text)
-@bot.message_handler(func=lambda m: m.from_user.id == ADMIN_ID and "=" in m.text)
 def admin_set_price(message):
+    try:
+        key,value=message.text.split("=")
