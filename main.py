@@ -495,4 +495,4 @@ def admin_panel(message):
     bot.send_message(message.from_user.id, "Админ-панель:", reply_markup=markup)
 
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith("complete_order_"))
+@bot.callback_query_handler(func=lambda call: call.data.s
