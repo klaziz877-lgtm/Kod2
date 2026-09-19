@@ -1,47 +1,108 @@
 import os
+
 from flask import Flask, request
 import telebot
 
-# Получаем токен из настроек Render. Если его там нет — ставим ваш токен текстом для надежности
-BOT_TOKEN = os.environ.get('BOT_TOKEN') or '8874298910:AAEx5QaEbVHrxyVwAHcVlaZc4H4MnzkeDK0'
+
+# =========================
+# НАСТРОЙКИ
+# =========================
+
+BOT_TOKEN = os.environ.get("BOT_TOKEN")
+
+if not BOT_TOKEN:
+    raise RuntimeError("BOT_TOKEN не найден в Render Environment, блядь.")
+
 bot = telebot.TeleBot(BOT_TOKEN)
 
 app = Flask(__name__)
 
-# Сюда Telegram будет присылать сообщения пользователей
-@app.route('/webhook', methods=['POST'])
-def get_message():
-    if request.headers.get('content-type') == 'application/json':
-        json_string = request.get_data().decode('utf-8')
+
+# =========================
+# WEBHOOK
+# =========================
+
+@app.route("/webhook", methods=["POST"])
+def webhook():
+    if request.headers.get("content-type") == "application/json":
+        json_string = request.get_data().decode("utf-8")
         update = telebot.types.Update.de_json(json_string)
+
         bot.process_new_updates([update])
-        return '', 200
-    else:
-        return 'Forbidden', 403
 
-# Сюда заходим в браузере для проверки
-@app.route('/')
-def webhook_index():
-    return "Бот успешно запущен на Render и готов к работе!", 200
+        return "OK", 200
 
-# --- СЮДА ВСТАВЛЯЙТЕ СВОИ КНОПКИ И ЛОГИКУ БОТА ---
-@bot.message_handler(commands=['start'])
+    return "Forbidden", 403
+
+
+# =========================
+# ПРОВЕРКА СЕРВЕРА
+# =========================
+
+@app.route("/", methods=["GET"])
+def home():
+    return "SMM-бот успешно запущен на Render, блядь.", 200
+
+
+# =========================
+# КОМАНДА /START
+# =========================
+
+@bot.message_handler(commands=["start"])
 def send_welcome(message):
-    bot.reply_to(message, "Привет! Твой SMM-бот наконец-то полностью ожил на бесплатном сервере! 🚀")
+    bot.reply_to(
+        message,
+        "Привет, блядь! SMM-бот запущен и готов к работе."
+    )
+
+
+# =========================
+# ОТВЕТ НА СООБЩЕНИЯ
+# =========================
 
 @bot.message_handler(func=lambda message: True)
 def echo_all(message):
-    bot.reply_to(message, f"Вы написали: {message.text}")
-# --------------------------------------------------
+    bot.reply_to(
+        message,
+        f"Вы написали: {message.text}, блядь."
+    )
 
-# Принудительно ставим вебхук на надежный и простой адрес /webhook
-try:
-    bot.remove_webhook()
-    bot.set_webhook(url="https://onrender.com")
-    print("Вебхук успешно установлен на /webhook!")
-except Exception as e:
-    print(f"Ошибка вебхука: {e}")
+
+# =========================
+# УСТАНОВКА WEBHOOK
+# =========================
+
+def setup_webhook():
+    try:
+        bot.remove_webhook()
+
+        render_url = os.environ.get("RENDER_EXTERNAL_URL")
+
+        if not render_url:
+            raise RuntimeError(
+                "RENDER_EXTERNAL_URL не найден, блядь."
+            )
+
+        webhook_url = f"{render_url}/webhook"
+
+        bot.set_webhook(url=webhook_url)
+
+        print(f"Webhook установлен: {webhook_url}")
+
+    except Exception as e:
+        print(f"Ошибка вебхука: {e}")
+
+
+# =========================
+# ЗАПУСК
+# =========================
 
 if __name__ == "__main__":
-    PORT = int(os.environ.get('PORT', 10000))
-    app.run(host="0.0.0.0", port=PORT)
+    setup_webhook()
+
+    port = int(os.environ.get("PORT", 10000))
+
+    app.run(
+        host="0.0.0.0",
+        port=port
+    )
