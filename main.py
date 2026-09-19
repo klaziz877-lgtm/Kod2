@@ -493,7 +493,92 @@ def admin_panel(message):
         types.InlineKeyboardButton("Пользователи", callback_data="admin_users"),
     )
     bot.send_message(message.from_user.id, "Админ-панель:", reply_markup=markup)
+@bot.callback_query_handler(func=lambda call: call.data.startswith("admin_"))
+def admin_actions(call):
+    if call.from_user.id != ADMIN_ID:
+        return
+    action = call.data.replace("admin_", "")
+    if action in ["stars", "premium", "nakrutka_tg", "nakrutka_inst"]:
+        markup = types.InlineKeyboardMarkup(row_width=1)
+        for key, price, label in get_prices_by_category(action):
+            markup.add(types.InlineKeyboardButton(f"{label}: {price} сум", callback_data=f"edit_{key}"))
+        markup.add(types.InlineKeyboardButton("Назад", callback_data="admin_back_to_panel"))
+        bot.send_message(ADMIN_ID, f"Выберите позицию ({action}):", reply_markup=markup)
+    elif action == "add":
+        bot.send_message(ADMIN_ID, "Введите: key|label|category|price\nПример:\nnakrutka_tg_2000|2000 подписчиков|nakrutka_tg|150000")
+        bot.register_next_step_handler_by_chat_id(ADMIN_ID, save_new_service)
+    elif action == "stats":
+        conn = sqlite3.connect("smm.db")
+        c = conn.cursor()
+        c.execute("SELECT COUNT(*) FROM users")
+        users = c.fetchone()[0]
+        c.execute("SELECT COUNT(*) FROM orders")
+        orders_count = c.fetchone()[0]
+        c.execute("SELECT SUM(balance) FROM users")
+        total_bal = c.fetchone()[0] or 0
+        conn.close()
+        bot.send_message(ADMIN_ID, f"Статистика:\nПользователей: {users}\nЗаказов: {orders_count}\nОбщий баланс: {total_bal} сум")
+    elif action == "users":
+        conn = sqlite3.connect("smm.db")
+        c = conn.cursor()
+        c.execute("SELECT user_id, balance, lang FROM users ORDER BY user_id DESC LIMIT 20")
+        rows = c.fetchall()
+        conn.close()
+        text = "Последние 20 пользователей:\n\n"
+        for uid, bal, lang in rows:
+            text += f"{uid} - {bal} сум [{lang}]\n"
+        bot.send_message(ADMIN_ID, text)
+    elif action == "back_to_panel":
+        markup = types.InlineKeyboardMarkup(row_width=2)
+        markup.add(
+            types.InlineKeyboardButton("Цены Stars", callback_data="admin_stars"),
+            types.InlineKeyboardButton("Цены Premium", callback_data="admin_premium"),
+            types.InlineKeyboardButton("Накрутка TG", callback_data="admin_nakrutka_tg"),
+            types.InlineKeyboardButton("Накрутка Inst", callback_data="admin_nakrutka_inst"),
+            types.InlineKeyboardButton("Добавить услугу", callback_data="admin_add"),
+            types.InlineKeyboardButton("Статистика", callback_data="admin_stats"),
+            types.InlineKeyboardButton("Пользователи", callback_data="admin_users"),
+        )
+        bot.send_message(ADMIN_ID, "Админ-панель:", reply_markup=markup)
 
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("edit_"))
+def edit_price(call):
+    if call.from_user.id != ADMIN_ID:
+        return
+    key = call.data.replace("edit_", "")
+    price = get_price(key)
+    bot.send_message(ADMIN_ID, f"Текущая цена {key}: {price} сум\nВведите новую цену:")
+    bot.register_next_step_handler_by_chat_id(ADMIN_ID, lambda msg: save_new_price(msg, key))
+
+
+def save_new_price(message, key):
+    if message.text.startswith("/"):
+        bot.send_message(ADMIN_ID, "Отменено.")
+        return
+    try:
+        value = int(message.text.strip())
+        set_price(key, value)
+        bot.send_message(ADMIN_ID, f"Цена {key} сохранена: {value} сум")
+    except ValueError:
+        bot.send_message(ADMIN_ID, "Введите число.")
+
+
+def save_new_service(message):
+    if message.text.startswith("/"):
+        bot.send_message(ADMIN_ID, "Отменено.")
+        return
+    try:
+        parts = message.text.split("|")
+        if len(parts) != 4:
+            raise ValueError("Нужно 4 части")
+        key, label, category, price = parts
+        if category.strip() not in ["stars", "premium", "nakrutka_tg", "nakrutka_inst"]:
+            raise ValueError("Категория: stars, premium, nakrutka_tg, nakrutka_inst")
+        add_price(key.strip(), int(price.strip()), label.strip(), category.strip())
+        bot.send_message(ADMIN_ID, f"Услуга {label} добавлена!")
+    except Exception as e:
+        bot.send_message(ADMIN_ID, f"Ошибка: {e}")
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("complete_order_"))
 def complete_order(call):
