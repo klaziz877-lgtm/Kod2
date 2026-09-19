@@ -11,7 +11,7 @@ import telebot
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 
 if not BOT_TOKEN:
-    raise RuntimeError("BOT_TOKEN не найден в Render Environment, блядь.")
+    raise RuntimeError("BOT_TOKEN не найден в Render Environment.")
 
 bot = telebot.TeleBot(BOT_TOKEN)
 
@@ -52,7 +52,7 @@ def home():
 def send_welcome(message):
     bot.reply_to(
         message,
-        "Привет, блядь! SMM-бот запущен и готов к работе."
+        "Привет,! SMM-бот запущен и готов к работе."
     )
 
 
@@ -64,7 +64,7 @@ def send_welcome(message):
 def echo_all(message):
     bot.reply_to(
         message,
-        f"Вы написали: {message.text}, блядь."
+        f"Вы написали: {message.text}."
     )
 
 
@@ -80,7 +80,7 @@ def setup_webhook():
 
         if not render_url:
             raise RuntimeError(
-                "RENDER_EXTERNAL_URL не найден, блядь."
+                "RENDER_EXTERNAL_URL не найден,."
             )
 
         webhook_url = f"{render_url}/webhook"
