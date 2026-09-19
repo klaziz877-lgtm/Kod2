@@ -495,4 +495,20 @@ def admin_panel(message):
     bot.send_message(message.from_user.id, "Админ-панель:", reply_markup=markup)
 
 
-@bot.callback_query_handler(func=lambda call: call.data.s
+@bot.callback_query_handler(func=lambda call: call.data.startswith("complete_order_"))
+def complete_order(call):
+    if call.from_user.id != ADMIN_ID:
+        bot.answer_callback_query(call.id, "Нет доступа")
+        return
+    order_id = int(call.data.split("_")[2])
+    conn = sqlite3.connect("smm.db")
+    c = conn.cursor()
+    c.execute("UPDATE orders SET status='completed' WHERE id=?", (order_id,))
+    c.execute("SELECT user_id FROM orders WHERE id=?", (order_id,))
+    row = c.fetchone()
+    conn.commit()
+    conn.close()
+    if row:
+        bot.send_message(row[0], f"Ваш заказ №{order_id} выполнен!")
+    bot.edit_message_reply_markup(call.from_user.id, call.message.message_id, reply_markup=None)
+    bot.answer_callback_query(call.id, "Отмечено как выполненное")
