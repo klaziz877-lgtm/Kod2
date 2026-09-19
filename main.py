@@ -1,4 +1,5 @@
 import os
+import time
 import telebot
 from flask import Flask, request
 
@@ -53,10 +54,13 @@ def echo_all(message):
     )
 
 # ========================
-# УСТАНОВКА WEBHOOK
+# УСТАНОВКА WEBHOOK (с задержкой)
 # ========================
 def setup_webhook():
     try:
+        # Ждем 3 секунды, чтобы все воркеры Gunicorn запустились
+        time.sleep(3)
+        
         bot.remove_webhook()
         
         render_url = os.environ.get("RENDER_EXTERNAL_URL")
@@ -74,8 +78,7 @@ def setup_webhook():
 # ========================
 # ЗАПУСК
 # ========================
-# ВАЖНО: Вызываем установку вебхука ЗДЕСЬ, вне блока if __name__ == "__main__"
-# Это гарантирует, что Gunicorn выполнит установку при старте сервера.
+# Вызываем установку вебхука при старте (для Gunicorn)
 setup_webhook()
 
 if __name__ == "__main__":
