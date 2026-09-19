@@ -2,4 +2,3 @@ pyTelegramBotAPI
 Flask
 gunicorn
 requests
-fragment-stars-api
