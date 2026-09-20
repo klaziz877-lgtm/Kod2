@@ -26,24 +26,24 @@ def init_db():
     c.execute("CREATE TABLE IF NOT EXISTS prices (key TEXT PRIMARY KEY, value INTEGER, label TEXT, category TEXT)")
     c.execute("CREATE TABLE IF NOT EXISTS pending_payments (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, amount INTEGER, photo_id TEXT, status TEXT DEFAULT 'pending', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
     defaults = [
-        ("stars_50", 8000, "50 Stars", "stars"),
-        ("stars_100", 15000, "100 Stars", "stars"),
-        ("stars_250", 35000, "250 Stars", "stars"),
+        ("stars_50", 11000, "50 Stars", "stars"),
+        ("stars_100", 21500, "100 Stars", "stars"),
+        ("stars_250", 52000, "250 Stars", "stars"),
         ("stars_500", 70000, "500 Stars", "stars"),
         ("stars_1000", 130000, "1000 Stars", "stars"),
         ("stars_2500", 320000, "2500 Stars", "stars"),
         ("stars_5000", 600000, "5000 Stars", "stars"),
         ("stars_10000", 1150000, "10000 Stars", "stars"),
-        ("premium_1m", 30000, "1 месяц", "premium"),
-        ("premium_3m", 85000, "3 месяца", "premium"),
-        ("premium_6m", 165000, "6 месяцев", "premium"),
-        ("premium_12m", 320000, "12 месяцев", "premium"),
-        ("nakrutka_tg_100", 10000, "100 подписчиков", "nakrutka_tg"),
-        ("nakrutka_tg_500", 45000, "500 подписчиков", "nakrutka_tg"),
-        ("nakrutka_tg_1000", 85000, "1000 подписчиков", "nakrutka_tg"),
-        ("nakrutka_inst_100", 12000, "100 подписчиков", "nakrutka_inst"),
-        ("nakrutka_inst_500", 50000, "500 подписчиков", "nakrutka_inst"),
-        ("nakrutka_inst_1000", 95000, "1000 подписчиков", "nakrutka_inst"),
+        ("premium_1m", 55000, "1 месяц", "premium"),
+        ("premium_3m", 190000, "3 месяца", "premium"),
+        ("premium_6m", 250000, "6 месяцев", "premium"),
+        ("premium_12m", 420000, "12 месяцев", "premium"),
+        ("nakrutka_tg_1000", 25000, "1000 подписчиков", "nakrutka_tg"),
+        ("nakrutka_tg_5000", 90000, "5000 подписчиков", "nakrutka_tg"),
+        ("nakrutka_tg_10000", 175000, "10000 подписчиков", "nakrutka_tg"),
+        ("nakrutka_inst_1000", 35000, "1000 подписчиков", "nakrutka_inst"),
+        ("nakrutka_inst_5000", 190000, "5000 подписчиков", "nakrutka_inst"),
+        ("nakrutka_inst_10000", 475000, "10000 подписчиков", "nakrutka_inst"),
     ]
     for k, v, label, cat in defaults:
         c.execute("INSERT OR IGNORE INTO prices (key, value, label, category) VALUES (?, ?, ?, ?)", (k, v, label, cat))
