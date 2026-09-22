@@ -297,6 +297,238 @@ def webhook():
 @app.route("/", methods=["GET"])
 def home():
     return "SMM-bot works!", 200
+    # ========================
+# ЯЗЫКИ
+# ========================
+TEXTS = {
+    "uz": {
+        "choose_section": "👇 Quyidagi bo'limlardan birini tanlang:",
+        "welcome": "👋 Assalomu alaykum {name}!\n\n🤖 Bizning SMM botimizga xush kelibsiz:\n\nIjtimoiy tarmoqlar uchun obunachi, like, ko'rishlar va boshqa xizmatlar.\n\n👤 ID raqam: {user_id}",
+        "balance": "💳 Hisobim",
+        "topup": "💳 Pul kiritish",
+        "bonus": "👥 Referal",
+        "orders": "📊 Buyurtmalarim",
+        "support": "☎️ Qo'llab-quvvatlash",
+        "lang": "🌐 Til",
+        "back": "⬅️ Orqaga",
+        "your_balance": "💵 Balansingiz: {bal} so'm\n💰 Jami to'ldirilgan: {topup} so'm",
+        "not_enough": "❌ Mablag' yetarli emas. Kerak: {price} so'm, sizda: {bal} so'm.",
+        "order_created": "✅ {service} uchun buyurtma yaratildi.",
+        "no_username": "❌ Telegram'da username o'rnatilmagan.",
+        "payment_sent": "✅ Chek tekshiruvga yuborildi.",
+        "topup_text": "💳 Pul kiritish\n\nQuyidagi kartaga o'tkazing:\n{karta}\n\n{ism}\n\nTo'lovni amalga oshirgandan so'ng, chekni rasm sifatida yuboring.",
+        "support_text": "☎️ Qo'llab-quvvatlash: {support}",
+    },
+    "ru": {
+        "choose_section": "👇 Выберите нужный раздел:",
+        "welcome": "👋 Привет, {name}!\n\n🤖 Добро пожаловать в наш SMM-бот:\n\nНакрутка подписчиков, лайков, просмотров и другие услуги.\n\n👤 Ваш ID: {user_id}",
+        "balance": "💳 Мой баланс",
+        "topup": "💳 Пополнить баланс",
+        "bonus": "👥 Реферал",
+        "orders": "📊 Мои заказы",
+        "support": "☎️ Поддержка",
+        "lang": "🌐 Язык",
+        "back": "⬅️ Назад",
+        "your_balance": "💵 Ваш баланс: {bal} сум\n💰 Всего пополнено: {topup} сум",
+        "not_enough": "❌ Недостаточно средств. Нужно: {price} сум, у вас: {bal} сум.",
+        "order_created": "✅ Заказ на {service} создан.",
+        "no_username": "❌ У вас не установлен username в Telegram.",
+        "payment_sent": "✅ Чек отправлен на проверку.",
+        "topup_text": "💳 Пополнение баланса\n\nПереведите на карту:\n{karta}\n\n{ism}\n\nПосле оплаты отправьте чек фото.",
+        "support_text": "☎️ Поддержка: {support}",
+    }
+}
+
+def get_lang(user_id):
+    conn = db()
+    c = conn.cursor()
+    c.execute("SELECT lang FROM users WHERE user_id=%s", (user_id,))
+    row = c.fetchone()
+    c.close()
+    conn.close()
+    return row[0] if row else "uz"
+
+def t(user_id, key, **kwargs):
+    lang = get_lang(user_id)
+    text = TEXTS.get(lang, TEXTS["uz"]).get(key, key)
+    return text.format(**kwargs) if kwargs else text
+
+# ========================
+# КЛАВИАТУРЫ
+# ========================
+def main_menu(user_id):
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+    markup.add(
+        types.KeyboardButton("💎 Donat qilish"),
+        types.KeyboardButton("🛍 Xizmatlar"),
+        types.KeyboardButton(t(user_id, "topup")),
+        types.KeyboardButton(t(user_id, "balance")),
+        types.KeyboardButton(t(user_id, "bonus")),
+        types.KeyboardButton(t(user_id, "orders")),
+        types.KeyboardButton("📢 Kanal ulash"),
+        types.KeyboardButton(t(user_id, "support")),
+        types.KeyboardButton("🤝 Hamkorlik dasturi"),
+        types.KeyboardButton(t(user_id, "lang")),
+    )
+    return markup
+
+def services_menu(user_id):
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+    markup.add(
+        types.KeyboardButton("📱 Telegram"),
+        types.KeyboardButton("📸 Instagram"),
+        types.KeyboardButton("🎵 Tik Tok"),
+        types.KeyboardButton("▶️ You tube"),
+        types.KeyboardButton("📘 Facebook"),
+        types.KeyboardButton("🧵 Threads"),
+        types.KeyboardButton("⭐ Premium, Stars, Gift"),
+        types.KeyboardButton(t(user_id, "back")),
+    )
+    return markup
+
+def telegram_menu(user_id):
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
+    markup.add(
+        types.KeyboardButton("👤 Telegram obunachi"),
+        types.KeyboardButton("👁 Prasmotrlar"),
+        types.KeyboardButton("👍 Reaksiyalar"),
+        types.KeyboardButton(t(user_id, "back")),
+    )
+    return markup
+
+def instagram_menu(user_id):
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
+    markup.add(
+        types.KeyboardButton("👤 Instagram obunachilar"),
+        types.KeyboardButton("👁 Prasmotr"),
+        types.KeyboardButton("❤️ Like"),
+        types.KeyboardButton(t(user_id, "back")),
+    )
+    return markup
+
+def tiktok_menu(user_id):
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
+    markup.add(
+        types.KeyboardButton("👤 Tik Tok Obunachi"),
+        types.KeyboardButton("👁 Tik Tok Prasmotr"),
+        types.KeyboardButton("❤️ Tik Tok Like"),
+        types.KeyboardButton(t(user_id, "back")),
+    )
+    return markup
+
+def youtube_menu(user_id):
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
+    markup.add(
+        types.KeyboardButton("👥 You Tube Obunachi"),
+        types.KeyboardButton("👁 You Tube Prasmotr"),
+        types.KeyboardButton("👍 Yoqtirish"),
+        types.KeyboardButton(t(user_id, "back")),
+    )
+    return markup
+
+def facebook_menu(user_id):
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
+    markup.add(
+        types.KeyboardButton("👥 Facebook Obunachi"),
+        types.KeyboardButton("❤️ Facebook Like"),
+        types.KeyboardButton(t(user_id, "back")),
+    )
+    return markup
+
+def threads_menu(user_id):
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
+    markup.add(
+        types.KeyboardButton("👥 Threads Obunachi"),
+        types.KeyboardButton("❤️ Threads Like"),
+        types.KeyboardButton(t(user_id, "back")),
+    )
+    return markup
+
+def donat_menu(user_id):
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+    markup.add(
+        types.KeyboardButton("🎮 Free Fire"),
+        types.KeyboardButton("🔫 PUBG UC"),
+        types.KeyboardButton("💎 Mobile Legends"),
+        types.KeyboardButton(t(user_id, "back")),
+    )
+    return markup
+
+def back_kb(user_id):
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
+    markup.add(types.KeyboardButton(t(user_id, "back")))
+    return markup
+
+# ========================
+# /START
+# ========================
+@bot.message_handler(commands=["start"])
+def send_welcome(message):
+    user_id = message.from_user.id
+    user_name = message.from_user.first_name or "do'stim"
+    conn = db()
+    c = conn.cursor()
+    c.execute("INSERT INTO users (user_id) VALUES (%s) ON CONFLICT (user_id) DO NOTHING", (user_id,))
+    conn.commit()
+    c.close()
+    conn.close()
+    args = message.text.split()
+    if len(args) > 1 and args[1].startswith("ref_"):
+        try:
+            ref_id = int(args[1].replace("ref_", ""))
+            if ref_id != user_id:
+                conn = db()
+                c = conn.cursor()
+                c.execute("UPDATE users SET ref_by=%s WHERE user_id=%s", (ref_id, user_id))
+                conn.commit()
+                c.close()
+                conn.close()
+        except:
+            pass
+    send_clean(
+        user_id,
+        t(user_id, "welcome", name=user_name, user_id=user_id),
+        reply_markup=main_menu(user_id)
+    )
+
+# ========================
+# ОБРАБОТЧИКИ МЕНЮ
+# ========================
+@bot.message_handler(func=lambda m: m.text == "🛍 Xizmatlar")
+def show_services(message):
+    send_clean(message.from_user.id, "👇 Xizmatlardan birini tanlang:", reply_markup=services_menu(message.from_user.id))
+
+@bot.message_handler(func=lambda m: m.text == "📱 Telegram")
+def show_telegram(message):
+    send_clean(message.from_user.id, "👇 Ichki bo'limlardan birini tanlang:", reply_markup=telegram_menu(message.from_user.id))
+
+@bot.message_handler(func=lambda m: m.text == "📸 Instagram")
+def show_instagram(message):
+    send_clean(message.from_user.id, "👇 Ichki bo'limlardan birini tanlang:", reply_markup=instagram_menu(message.from_user.id))
+
+@bot.message_handler(func=lambda m: m.text == "🎵 Tik Tok")
+def show_tiktok(message):
+    send_clean(message.from_user.id, "👇 Ichki bo'limlardan birini tanlang:", reply_markup=tiktok_menu(message.from_user.id))
+
+@bot.message_handler(func=lambda m: m.text == "▶️ You tube")
+def show_youtube(message):
+    send_clean(message.from_user.id, "👇 Ichki bo'limlardan birini tanlang:", reply_markup=youtube_menu(message.from_user.id))
+
+@bot.message_handler(func=lambda m: m.text == "📘 Facebook")
+def show_facebook(message):
+    send_clean(message.from_user.id, "👇 Ichki bo'limlardan birini tanlang:", reply_markup=facebook_menu(message.from_user.id))
+
+@bot.message_handler(func=lambda m: m.text == "🧵 Threads")
+def show_threads(message):
+    send_clean(message.from_user.id, "👇 Ichki bo'limlardan birini tanlang:", reply_markup=threads_menu(message.from_user.id))
+
+@bot.message_handler(func=lambda m: m.text == "💎 Donat qilish")
+def show_donat(message):
+    send_clean(message.from_user.id, "👇 O'yinni tanlang:", reply_markup=donat_menu(message.from_user.id))
+
+@bot.message_handler(func=lambda m: m.text == t(m.from_user.id, "back"))
+def back_to_main(message):
+    send_clean(message.from_user.id, t(message.from_user.id, "choose_section"), reply_markup=main_menu(message.from_user.id))
 
 # ========================
 # ЗАПУСК
