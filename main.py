@@ -529,6 +529,226 @@ def show_donat(message):
 @bot.message_handler(func=lambda m: m.text == t(m.from_user.id, "back"))
 def back_to_main(message):
     send_clean(message.from_user.id, t(message.from_user.id, "choose_section"), reply_markup=main_menu(message.from_user.id))
+    # ========================
+# HISOBIM (БАЛАНС)
+# ========================
+@bot.message_handler(func=lambda m: m.text == t(m.from_user.id, "balance"))
+def show_balance(message):
+    user_id = message.from_user.id
+    bal = get_balance(user_id)
+    topup = get_total_topup(user_id)
+    send_clean(
+        user_id,
+        t(user_id, "your_balance", bal=bal, topup=topup),
+        reply_markup=main_menu(user_id)
+    )
+
+# ========================
+# PUL KIRITISH (ПОПОЛНЕНИЕ)
+# ========================
+@bot.message_handler(func=lambda m: m.text == t(m.from_user.id, "topup"))
+def topup(message):
+    user_id = message.from_user.id
+    send_clean(
+        user_id,
+        t(user_id, "topup_text", karta=CARD_NUMBER, ism=CARD_NAME),
+        reply_markup=back_kb(user_id)
+    )
+    bot.register_next_step_handler(message, handle_receipt)
+
+def handle_receipt(message):
+    user_id = message.from_user.id
+    if message.text == t(user_id, "back"):
+        send_clean(user_id, t(user_id, "choose_section"), reply_markup=main_menu(user_id))
+        return
+    if not message.photo:
+        send_clean(user_id, "Iltimos, chekni rasm sifatida yuboring.", reply_markup=back_kb(user_id))
+        bot.register_next_step_handler(message, handle_receipt)
+        return
+    photo_id = message.photo[-1].file_id
+    conn = db()
+    c = conn.cursor()
+    c.execute("INSERT INTO pending_payments (user_id, photo_id) VALUES (%s, %s) RETURNING id", (user_id, photo_id))
+    payment_id = c.fetchone()[0]
+    conn.commit()
+    c.close()
+    conn.close()
+    send_clean(user_id, t(user_id, "payment_sent"), reply_markup=main_menu(user_id))
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    markup.add(
+        types.InlineKeyboardButton("✅ Tasdiqlash", callback_data=f"approve_{payment_id}"),
+        types.InlineKeyboardButton("❌ Rad etish", callback_data=f"reject_{payment_id}")
+    )
+    bot.send_photo(ADMIN_ID, photo_id, caption=f"💳 Yangi chek\nUser: {user_id}\nID: {payment_id}", reply_markup=markup)
+
+# ========================
+# REFERAL
+# ========================
+@bot.message_handler(func=lambda m: m.text == t(m.from_user.id, "bonus"))
+def show_referral(message):
+    user_id = message.from_user.id
+    conn = db()
+    c = conn.cursor()
+    c.execute("SELECT COUNT(*) FROM users WHERE ref_by=%s", (user_id,))
+    ref_count = c.fetchone()[0]
+    c.close()
+    conn.close()
+    bot_username = bot.get_me().username
+    send_clean(
+        user_id,
+        f"👥 Sizning referallaringiz: {ref_count} ta\n\n"
+        f"✨ Do'st taklif qiling — daromad oling!\n\n"
+        f"Siz taklif qilgan har bir foydalanuvchi kiritgan summadan sizga 0.4% bonus beriladi 🤝\n\n"
+        f"🔗 Havolangiz:\nhttps://t.me/{bot_username}?start=ref_{user_id}",
+        reply_markup=main_menu(user_id)
+    )
+
+# ========================
+# BUYURTMALARIM
+# ========================
+@bot.message_handler(func=lambda m: m.text == t(m.from_user.id, "orders"))
+def show_orders(message):
+    user_id = message.from_user.id
+    conn = db()
+    c = conn.cursor()
+    c.execute("SELECT id, service, status FROM orders WHERE user_id=%s ORDER BY id DESC LIMIT 10", (user_id,))
+    rows = c.fetchall()
+    c.close()
+    conn.close()
+    if not rows:
+        send_clean(user_id, "📊 Sizda hali buyurtmalar yo'q.", reply_markup=main_menu(user_id))
+        return
+    text = "📊 Buyurtmalarim:\n\n"
+    for oid, service, status in rows:
+        text += f"№{oid} — {service} — [{status}]\n"
+    send_clean(user_id, text, reply_markup=main_menu(user_id))
+
+# ========================
+# KANAL ULASH
+# ========================
+@bot.message_handler(func=lambda m: m.text == "📢 Kanal ulash")
+def show_channel(message):
+    send_clean(
+        message.from_user.id,
+        "📢 «Kanal ulash» bo'limi tez orada ishga tushadi.",
+        reply_markup=main_menu(message.from_user.id)
+    )
+
+# ========================
+# QO'LLAB-QUVVATLASH
+# ========================
+@bot.message_handler(func=lambda m: m.text == t(m.from_user.id, "support"))
+def show_support(message):
+    send_clean(
+        message.from_user.id,
+        t(message.from_user.id, "support_text", support=SUPPORT_USERNAME),
+        reply_markup=main_menu(message.from_user.id)
+    )
+
+# ========================
+# HAMKORLIK DASTURI
+# ========================
+@bot.message_handler(func=lambda m: m.text == "🤝 Hamkorlik dasturi")
+def show_partnership(message):
+    send_clean(
+        message.from_user.id,
+        f"🤝 Hamkorlik dasturi\n\n"
+        f"⚙️ API dokument:\nhttps://neosmm.uz/api/\n\n"
+        f"🔑 API xizmat:\nhttps://neosmm.uz/api/v2\n\n"
+        f"💵 Balansingiz: {get_balance(message.from_user.id)} so'm",
+        reply_markup=main_menu(message.from_user.id)
+    )
+
+# ========================
+# TIL (ЯЗЫК)
+# ========================
+@bot.message_handler(func=lambda m: m.text == t(m.from_user.id, "lang"))
+def lang_menu(message):
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+    markup.add(types.KeyboardButton("🇺🇿 O'zbekcha"), types.KeyboardButton("🇷🇺 Русский"))
+    markup.add(types.KeyboardButton(t(message.from_user.id, "back")))
+    send_clean(message.from_user.id, "🌐 Tilni tanlang / Выберите язык:", reply_markup=markup)
+
+@bot.message_handler(func=lambda m: m.text == "🇺🇿 O'zbekcha")
+def set_uz(message):
+    conn = db()
+    c = conn.cursor()
+    c.execute("UPDATE users SET lang='uz' WHERE user_id=%s", (message.from_user.id,))
+    conn.commit()
+    c.close()
+    conn.close()
+    send_clean(message.from_user.id, "✅ Til o'zgartirildi: O'zbekcha", reply_markup=main_menu(message.from_user.id))
+
+@bot.message_handler(func=lambda m: m.text == "🇷🇺 Русский")
+def set_ru(message):
+    conn = db()
+    c = conn.cursor()
+    c.execute("UPDATE users SET lang='ru' WHERE user_id=%s", (message.from_user.id,))
+    conn.commit()
+    c.close()
+    conn.close()
+    send_clean(message.from_user.id, "✅ Язык изменён: Русский", reply_markup=main_menu(message.from_user.id))
+
+# ========================
+# ПОДТВЕРЖДЕНИЕ ЧЕКА (АДМИН)
+# ========================
+@bot.callback_query_handler(func=lambda call: call.data.startswith("approve_") or call.data.startswith("reject_"))
+def handle_payment(call):
+    if call.from_user.id != ADMIN_ID:
+        bot.answer_callback_query(call.id, "❌ Ruxsat yo'q")
+        return
+    action, payment_id = call.data.split("_")
+    payment_id = int(payment_id)
+    conn = db()
+    c = conn.cursor()
+    c.execute("SELECT user_id FROM pending_payments WHERE id=%s", (payment_id,))
+    row = c.fetchone()
+    c.close()
+    conn.close()
+    if not row:
+        bot.answer_callback_query(call.id, "❌ Topilmadi")
+        return
+    user_id = row[0]
+    if action == "approve":
+        bot.send_message(ADMIN_ID, f"💰 {user_id} uchun summani kiriting:")
+        bot.register_next_step_handler_by_chat_id(ADMIN_ID, lambda msg: confirm_amount(msg, payment_id, user_id))
+    else:
+        conn = db()
+        c = conn.cursor()
+        c.execute("UPDATE pending_payments SET status='rejected' WHERE id=%s", (payment_id,))
+        conn.commit()
+        c.close()
+        conn.close()
+        bot.send_message(user_id, "❌ Chekingiz rad etildi.")
+        bot.answer_callback_query(call.id, "❌ Rad etildi")
+
+def confirm_amount(message, payment_id, user_id):
+    try:
+        amount = int(message.text.strip())
+    except ValueError:
+        bot.send_message(ADMIN_ID, "❌ Raqam kiriting.")
+        return
+    update_balance(user_id, amount)
+    conn = db()
+    c = conn.cursor()
+    c.execute("UPDATE users SET total_topup = total_topup + %s WHERE user_id=%s", (amount, user_id))
+    c.execute("UPDATE pending_payments SET status='approved', amount=%s WHERE id=%s", (amount, payment_id))
+    # Реферальный бонус 0.4%
+    c.execute("SELECT ref_by FROM users WHERE user_id=%s", (user_id,))
+    ref_row = c.fetchone()
+    if ref_row and ref_row[0] and ref_row[0] != 0:
+        bonus = int(amount * 0.004)
+        if bonus > 0:
+            c.execute("UPDATE users SET balance = balance + %s WHERE user_id=%s", (bonus, ref_row[0]))
+            try:
+                bot.send_message(ref_row[0], f"🎁 Sizga {bonus} so'm bonus tushdi (referal)!")
+            except:
+                pass
+    conn.commit()
+    c.close()
+    conn.close()
+    bot.send_message(user_id, f"✅ Balansingiz {amount} so'mga to'ldirildi!")
+    bot.send_message(ADMIN_ID, f"✅ {user_id} ga {amount} so'm qo'shildi.")
 
 # ========================
 # ЗАПУСК
