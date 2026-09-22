@@ -387,6 +387,287 @@ def show_freefire(message):
 @bot.message_handler(func=lambda m: m.text == "⬅️ Orqaga")
 def back_to_main(message):
     send_clean(message.from_user.id, "Asosiy menyu:", reply_markup=main_menu(message.from_user.id))
+    # ========================
+# HISOBIM (БАЛАНС)
+# ========================
+@bot.message_handler(func=lambda m: m.text == "💳 Hisobim")
+def show_balance(message):
+    user_id = message.from_user.id
+    bal = get_balance(user_id)
+    topup = get_total_topup(user_id)
+    send_clean(
+        user_id,
+        f"🔑 Sizning ID raqamingiz: {user_id}\n\n"
+        f"💵 Balansingiz: {bal} so'm\n"
+        f"💰 Jami to'ldirilgan so'mma: {topup} so'm",
+        reply_markup=main_menu(user_id)
+    )
+
+# ========================
+# PUL KIRITISH (ПОПОЛНЕНИЕ)
+# ========================
+@bot.message_handler(func=lambda m: m.text == "💳 Pul kiritish")
+def topup(message):
+    user_id = message.from_user.id
+    send_clean(
+        user_id,
+        f"💳 Pul kiritish\n\n"
+        f"Quyidagi kartaga o'tkazing:\n"
+        f"{CARD_NUMBER}\n\n"
+        f"To'lovni amalga oshirgandan so'ng, chekni rasm sifatida yuboring.",
+        reply_markup=back_kb()
+    )
+    bot.register_next_step_handler(message, handle_receipt)
+
+
+def handle_receipt(message):
+    user_id = message.from_user.id
+    if message.text == "⬅️ Orqaga":
+        send_clean(user_id, "Asosiy menyu:", reply_markup=main_menu(user_id))
+        return
+    if not message.photo:
+        send_clean(user_id, "Iltimos, chekni rasm sifatida yuboring.", reply_markup=back_kb())
+        bot.register_next_step_handler(message, handle_receipt)
+        return
+    photo_id = message.photo[-1].file_id
+    conn = sqlite3.connect("smm.db")
+    c = conn.cursor()
+    c.execute("INSERT INTO pending_payments (user_id, photo_id) VALUES (?, ?)", (user_id, photo_id))
+    payment_id = c.lastrowid
+    conn.commit()
+    conn.close()
+    send_clean(user_id, "✅ Chek tekshiruvga yuborildi.", reply_markup=main_menu(user_id))
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    markup.add(
+        types.InlineKeyboardButton("✅ Tasdiqlash", callback_data=f"approve_{payment_id}"),
+        types.InlineKeyboardButton("❌ Rad etish", callback_data=f"reject_{payment_id}")
+    )
+    bot.send_photo(ADMIN_ID, photo_id, caption=f"💳 Yangi chek\nUser: {user_id}\nID: {payment_id}", reply_markup=markup)
+
+# ========================
+# REFERAL
+# ========================
+@bot.message_handler(func=lambda m: m.text == "👥 Referal")
+def show_referral(message):
+    user_id = message.from_user.id
+    conn = sqlite3.connect("smm.db")
+    c = conn.cursor()
+    c.execute("SELECT COUNT(*) FROM users WHERE ref_by=?", (user_id,))
+    ref_count = c.fetchone()[0]
+    conn.close()
+    bot_username = bot.get_me().username
+    send_clean(
+        user_id,
+        f"Sizning referallaringiz: {ref_count} ta\n\n"
+        f"✨ Do'st taklif qiling — daromad oling!\n\n"
+        f"Siz taklif qilgan har bir foydalanuvchi kiritgan summadan sizga 1% bonus beriladi 🤝\n\n"
+        f"🔗 Havolangizni ulashing va daromadni boshlang!\n\n"
+        f"https://t.me/{bot_username}?start=ref_{user_id}",
+        reply_markup=main_menu(user_id)
+    )
+
+# ========================
+# BUYURTMALARIM
+# ========================
+@bot.message_handler(func=lambda m: m.text == "📊 Buyurtmalarim")
+def show_orders(message):
+    user_id = message.from_user.id
+    conn = sqlite3.connect("smm.db")
+    c = conn.cursor()
+    c.execute("SELECT id, service, status FROM orders WHERE user_id=? ORDER BY id DESC LIMIT 10", (user_id,))
+    rows = c.fetchall()
+    conn.close()
+    if not rows:
+        send_clean(user_id, "📊 Sizda hali buyurtmalar yo'q.", reply_markup=main_menu(user_id))
+        return
+    text = "📊 Buyurtmalarim:\n\n"
+    for oid, service, status in rows:
+        text += f"{oid} - {service} - [{status}]\n"
+    send_clean(user_id, text, reply_markup=main_menu(user_id))
+
+# ========================
+# KANAL ULASH
+# ========================
+@bot.message_handler(func=lambda m: m.text == "📢 Kanal ulash")
+def show_channel(message):
+    send_clean(
+        message.from_user.id,
+        f"📢 «Kanalim» bo'limidan foydalanish uchun botga kanalingizni ulashingiz kerak.\n\n"
+        f"Buning uchun 3 xil usuldan birini bajaring 👇\n\n"
+        f"1️⃣ «Kanallar ro'yxati» tugmasini bosing va kanalni tanlang!\n\n"
+        f"2️⃣ Kanalingiz havolasini (masalan: https://t.me/neosmnn yoki @neosmnn) yuboring!\n\n"
+        f"3️⃣ Kanalingizdagi istalgan postni botga ulashib yuboring!\n\n"
+        f"⚠️ Faqat ochiq (public) kanal tanlang!",
+        reply_markup=main_menu(message.from_user.id)
+    )
+
+# ========================
+# QO'LLAB-QUVVATLASH
+# ========================
+@bot.message_handler(func=lambda m: m.text == "☎️ Qo'llab-quvvatlash")
+def show_support(message):
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("☎️ Qo'llab-quvvatlash", url=f"https://t.me/{SUPPORT_USERNAME.replace('@', '')}"))
+    send_clean(
+        message.from_user.id,
+        f"📢 Bot yangiliklari: @neosmnn\n"
+        f"👤 Qo'llab-quvvatlash: {SUPPORT_USERNAME}\n\n"
+        f"❓ Sizga qanday yordam kerak.",
+        reply_markup=main_menu(message.from_user.id)
+    )
+    bot.send_message(message.from_user.id, "👇", reply_markup=markup)
+
+# ========================
+# HAMKORLIK DASTURI
+# ========================
+@bot.message_handler(func=lambda m: m.text == "🤝 Hamkorlik dasturi")
+def show_partnership(message):
+    send_clean(
+        message.from_user.id,
+        f"⚙️ Api dokument:\nhttps://neosmm.uz/api/\n\n"
+        f"🔑 Api xizmat:\nhttps://neosmm.uz/api/v2\n\n"
+        f"🔑 Sizning API kalitingiz: Yo'q\n"
+        f"💵 Balansingiz: {get_balance(message.from_user.id)} so'm",
+        reply_markup=main_menu(message.from_user.id)
+    )
+
+# ========================
+# DONAT QILISH
+# ========================
+@bot.message_handler(func=lambda m: m.text == "💎 Donat qilish")
+def show_donat(message):
+    send_clean(message.from_user.id, "💎 Donat qilish bo'limi tez orada ishga tushadi.", reply_markup=main_menu(message.from_user.id))
+
+# ========================
+# PREMIUM, STARS, GIFT (РУЧНОЙ РЕЖИМ)
+# ========================
+@bot.message_handler(func=lambda m: m.text == "⭐ Premium, Stars, Gift")
+def show_premium(message):
+    user_id = message.from_user.id
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    # Stars
+    for key, price, label in get_prices_by_category("stars"):
+        markup.add(types.InlineKeyboardButton(f"⭐ {label} - {price} so'm", callback_data=f"buy_{key}"))
+    # Premium
+    for key, price, label in get_prices_by_category("premium"):
+        markup.add(types.InlineKeyboardButton(f"💎 Premium {label} - {price} so'm", callback_data=f"buy_{key}"))
+    markup.add(types.InlineKeyboardButton("⬅️ Orqaga", callback_data="back_to_services"))
+    send_clean(user_id, "⭐ Premium, Stars, Gift:\n\n👇 Xizmatlardan birini tanlang:", reply_markup=markup)
+
+# ========================
+# ОБРАБОТЧИКИ КНОПОК "ORQAGA" ДЛЯ УСЛУГ (inline)
+# ========================
+@bot.callback_query_handler(func=lambda call: call.data == "back_to_services")
+def back_to_services(cb):
+    bot.delete_message(cb.from_user.id, cb.message.message_id)
+    send_clean(cb.from_user.id, "🛍 Xizmatlar:", reply_markup=services_menu())
+
+# ========================
+# ПОКУПКА (РУЧНАЯ ВЫДАЧА)
+# ========================
+@bot.callback_query_handler(func=lambda call: call.data.startswith("buy_"))
+def process_buy(call):
+    user_id = call.from_user.id
+    key = call.data.replace("buy_", "")
+    price = get_price(key)
+    bal = get_balance(user_id)
+    if bal < price:
+        bot.answer_callback_query(call.id, f"❌ Mablag' yetarli emas. Kerak: {price} so'm, sizda: {bal} so'm.", show_alert=True)
+        return
+    username = call.from_user.username
+    if not username:
+        bot.answer_callback_query(call.id, "❌ Telegram'da username o'rnatilmagan.", show_alert=True)
+        return
+    update_balance(user_id, -price)
+    conn = sqlite3.connect("smm.db")
+    c = conn.cursor()
+    c.execute("INSERT INTO orders (user_id, service, amount, price, status) VALUES (?, ?, ?, ?, 'pending')",
+              (user_id, key, 1, price))
+    order_id = c.lastrowid
+    conn.commit()
+    conn.close()
+    bot.answer_callback_query(call.id, "✅ Buyurtma yaratildi!")
+    send_clean(user_id, f"✅ {key} uchun buyurtma yaratildi. Admin tez orada bajaradi.", reply_markup=main_menu(user_id))
+    bot.send_message(ADMIN_ID,
+        f"🆕 Yangi buyurtma!\n"
+        f"Xizmat: {key}\n"
+        f"User: {user_id}\n"
+        f"Username: @{username}\n"
+        f"Narx: {price} so'm\n"
+        f"Order ID: {order_id}\n\n"
+        f"Qo'lda bajaring va quyidagi tugmani bosing.",
+        reply_markup=types.InlineKeyboardMarkup().add(
+            types.InlineKeyboardButton("✅ Bajarildi", callback_data=f"complete_order_{order_id}")
+        ))
+
+# ========================
+# ЗАВЕРШЕНИЕ ЗАКАЗА
+# ========================
+@bot.callback_query_handler(func=lambda call: call.data.startswith("complete_order_"))
+def complete_order(call):
+    if call.from_user.id != ADMIN_ID:
+        bot.answer_callback_query(call.id, "❌ Ruxsat yo'q")
+        return
+    order_id = int(call.data.split("_")[2])
+    conn = sqlite3.connect("smm.db")
+    c = conn.cursor()
+    c.execute("UPDATE orders SET status='completed' WHERE id=?", (order_id,))
+    c.execute("SELECT user_id FROM orders WHERE id=?", (order_id,))
+    row = c.fetchone()
+    conn.commit()
+    conn.close()
+    if row:
+        bot.send_message(row[0], f"✅ Buyurtmangiz №{order_id} bajarildi!")
+    bot.edit_message_reply_markup(call.from_user.id, call.message.message_id, reply_markup=None)
+    bot.answer_callback_query(call.id, "✅ Bajarildi deb belgilandi")
+
+# ========================
+# ПОДТВЕРЖДЕНИЕ ЧЕКА (АДМИН)
+# ========================
+@bot.callback_query_handler(func=lambda call: call.data.startswith("approve_") or call.data.startswith("reject_"))
+def handle_payment(call):
+    if call.from_user.id != ADMIN_ID:
+        bot.answer_callback_query(call.id, "❌ Ruxsat yo'q")
+        return
+    action, payment_id = call.data.split("_")
+    payment_id = int(payment_id)
+    conn = sqlite3.connect("smm.db")
+    c = conn.cursor()
+    c.execute("SELECT user_id FROM pending_payments WHERE id=?", (payment_id,))
+    row = c.fetchone()
+    conn.close()
+    if not row:
+        bot.answer_callback_query(call.id, "❌ Topilmadi")
+        return
+    user_id = row[0]
+    if action == "approve":
+        bot.send_message(ADMIN_ID, f"💰 {user_id} uchun summani kiriting:")
+        bot.register_next_step_handler_by_chat_id(ADMIN_ID, lambda msg: confirm_amount(msg, payment_id, user_id))
+    else:
+        conn = sqlite3.connect("smm.db")
+        c = conn.cursor()
+        c.execute("UPDATE pending_payments SET status='rejected' WHERE id=?", (payment_id,))
+        conn.commit()
+        conn.close()
+        bot.send_message(user_id, "❌ Chekingiz rad etildi.")
+        bot.answer_callback_query(call.id, "❌ Rad etildi")
+
+
+def confirm_amount(message, payment_id, user_id):
+    try:
+        amount = int(message.text.strip())
+    except ValueError:
+        bot.send_message(ADMIN_ID, "❌ Raqam kiriting.")
+        return
+    update_balance(user_id, amount)
+    conn = sqlite3.connect("smm.db")
+    c = conn.cursor()
+    c.execute("UPDATE users SET total_topup = total_topup + ? WHERE user_id=?", (amount, user_id))
+    c.execute("UPDATE pending_payments SET status='approved', amount=? WHERE id=?", (amount, payment_id))
+    conn.commit()
+    conn.close()
+    bot.send_message(user_id, f"✅ Balansingiz {amount} so'mga to'ldirildi!")
+    bot.send_message(ADMIN_ID, f"✅ {user_id} ga {amount} so'm qo'shildi.")
 
 # ========================
 # ЗАПУСК
