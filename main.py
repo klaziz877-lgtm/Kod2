@@ -179,6 +179,214 @@ def webhook():
 @app.route("/", methods=["GET"])
 def home():
     return "SMM-bot works!", 200
+    # ========================
+# ЯЗЫКИ
+# ========================
+TEXTS = {
+    "uz": {
+        "choose_section": "👇 Quyidagi bo'limlardan birini tanlang:",
+        "balance": "💳 Hisobim",
+        "topup": "💳 Pul kiritish",
+        "bonus": "👥 Referal",
+        "orders": "📊 Buyurtmalarim",
+        "support": "☎️ Qo'llab-quvvatlash",
+        "lang": "🌐 Til",
+        "your_balance": "💵 Balansingiz: {bal} so'm\n💰 Jami to'ldirilgan: {topup} so'm",
+        "not_enough": "❌ Mablag' yetarli emas. Kerak: {price} so'm, sizda: {bal} so'm.",
+        "order_created": "✅ {service} uchun buyurtma yaratildi.",
+        "no_username": "❌ Telegram'da username o'rnatilmagan.",
+        "support_text": "☎️ Qo'llab-quvvatlash: @neosmmhelp",
+        "payment_sent": "✅ Chek tekshiruvga yuborildi.",
+        "back": "⬅️ Orqaga",
+    }
+}
+
+def get_lang(user_id):
+    return "uz"
+
+def t(user_id, key, **kwargs):
+    lang = get_lang(user_id)
+    text = TEXTS.get(lang, TEXTS["uz"]).get(key, key)
+    return text.format(**kwargs) if kwargs else text
+
+# ========================
+# КЛАВИАТУРЫ
+# ========================
+def main_menu(user_id):
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+    markup.add(
+        types.KeyboardButton("💎 Donat qilish"),
+        types.KeyboardButton("🛍 Xizmatlar"),
+        types.KeyboardButton("💳 Pul kiritish"),
+        types.KeyboardButton("💳 Hisobim"),
+        types.KeyboardButton("👥 Referal"),
+        types.KeyboardButton("📊 Buyurtmalarim"),
+        types.KeyboardButton("📢 Kanal ulash"),
+        types.KeyboardButton("☎️ Qo'llab-quvvatlash"),
+        types.KeyboardButton("🤝 Hamkorlik dasturi"),
+    )
+    return markup
+
+def services_menu():
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+    markup.add(
+        types.KeyboardButton("📱 Telegram"),
+        types.KeyboardButton("📸 Instagram"),
+        types.KeyboardButton("🎵 Tik Tok"),
+        types.KeyboardButton("▶️ You tube"),
+        types.KeyboardButton("📘 Facebook"),
+        types.KeyboardButton("🧵 Threads"),
+        types.KeyboardButton("🎮 Free Fire"),
+        types.KeyboardButton("⭐ Premium, Stars, Gift"),
+        types.KeyboardButton("⬅️ Orqaga"),
+    )
+    return markup
+
+def telegram_menu():
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
+    markup.add(
+        types.KeyboardButton("👤 Telegram obunachi"),
+        types.KeyboardButton("👁 Prasmotrlar"),
+        types.KeyboardButton("👍 Reaksiyalar"),
+        types.KeyboardButton("⬅️ Orqaga"),
+    )
+    return markup
+
+def instagram_menu():
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
+    markup.add(
+        types.KeyboardButton("👤 Instagram obunachilar"),
+        types.KeyboardButton("👁 Prasmotr"),
+        types.KeyboardButton("❤️ Like"),
+        types.KeyboardButton("⬅️ Orqaga"),
+    )
+    return markup
+
+def tiktok_menu():
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
+    markup.add(
+        types.KeyboardButton("👤 Tik Tok Obunachi"),
+        types.KeyboardButton("👁 Tik Tok Prasmotr"),
+        types.KeyboardButton("❤️ Tik Tok Like"),
+        types.KeyboardButton("⬅️ Orqaga"),
+    )
+    return markup
+
+def youtube_menu():
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
+    markup.add(
+        types.KeyboardButton("👥 You Tube Obunachi"),
+        types.KeyboardButton("👁 You Tube Prasmotr"),
+        types.KeyboardButton("👍 Yoqtirish"),
+        types.KeyboardButton("⬅️ Orqaga"),
+    )
+    return markup
+
+def facebook_menu():
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
+    markup.add(
+        types.KeyboardButton("👥 Facebook Obunachi"),
+        types.KeyboardButton("❤️ Facebook Like"),
+        types.KeyboardButton("⬅️ Orqaga"),
+    )
+    return markup
+
+def threads_menu():
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
+    markup.add(
+        types.KeyboardButton("👥 Threads Obunachi"),
+        types.KeyboardButton("❤️ Threads Like"),
+        types.KeyboardButton("⬅️ Orqaga"),
+    )
+    return markup
+
+def freefire_menu():
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
+    markup.add(
+        types.KeyboardButton("🎮 100 UC"),
+        types.KeyboardButton("🎮 300 UC"),
+        types.KeyboardButton("🎮 500 UC"),
+        types.KeyboardButton("⬅️ Orqaga"),
+    )
+    return markup
+
+def back_kb():
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
+    markup.add(types.KeyboardButton("⬅️ Orqaga"))
+    return markup
+
+# ========================
+# /START
+# ========================
+@bot.message_handler(commands=["start"])
+def send_welcome(message):
+    user_id = message.from_user.id
+    user_name = message.from_user.first_name or "do'stim"
+    conn = sqlite3.connect("smm.db")
+    c = conn.cursor()
+    c.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (user_id,))
+    conn.commit()
+    conn.close()
+    args = message.text.split()
+    if len(args) > 1 and args[1].startswith("ref_"):
+        try:
+            ref_id = int(args[1].replace("ref_", ""))
+            if ref_id != user_id:
+                conn = sqlite3.connect("smm.db")
+                c = conn.cursor()
+                c.execute("UPDATE users SET ref_by=? WHERE user_id=?", (ref_id, user_id))
+                conn.commit()
+                conn.close()
+        except:
+            pass
+    send_clean(
+        user_id,
+        f"👋 Assalomu alaykum {user_name}!\n\n"
+        f"🤖 Bizning nakrutka botimizga xush kelibsiz:\n"
+        f"👇\n"
+        f"Ijtimoiy tarmoqlar (Telegram, Instagram, Tiktok va Youtube) uchun obunachi, like, ko'rishlar hamda reaksiyalarni ko'paytirishingiz mumkin\n\n"
+        f"👤 ID raqam: {user_id}",
+        reply_markup=main_menu(user_id)
+    )
+
+# ========================
+# ОБРАБОТЧИКИ МЕНЮ
+# ========================
+@bot.message_handler(func=lambda m: m.text == "🛍 Xizmatlar")
+def show_services(message):
+    send_clean(message.from_user.id, "👇 Quyidagi Ijtimoiy tarmoqlardan birini tanlang.", reply_markup=services_menu())
+
+@bot.message_handler(func=lambda m: m.text == "📱 Telegram")
+def show_telegram(message):
+    send_clean(message.from_user.id, "👇 Quyidagi ichki bo'limlardan birini tanlang:", reply_markup=telegram_menu())
+
+@bot.message_handler(func=lambda m: m.text == "📸 Instagram")
+def show_instagram(message):
+    send_clean(message.from_user.id, "👇 Quyidagi ichki bo'limlardan birini tanlang:", reply_markup=instagram_menu())
+
+@bot.message_handler(func=lambda m: m.text == "🎵 Tik Tok")
+def show_tiktok(message):
+    send_clean(message.from_user.id, "👇 Quyidagi ichki bo'limlardan birini tanlang:", reply_markup=tiktok_menu())
+
+@bot.message_handler(func=lambda m: m.text == "▶️ You tube")
+def show_youtube(message):
+    send_clean(message.from_user.id, "👇 Quyidagi ichki bo'limlardan birini tanlang:", reply_markup=youtube_menu())
+
+@bot.message_handler(func=lambda m: m.text == "📘 Facebook")
+def show_facebook(message):
+    send_clean(message.from_user.id, "👇 Quyidagi ichki bo'limlardan birini tanlang:", reply_markup=facebook_menu())
+
+@bot.message_handler(func=lambda m: m.text == "🧵 Threads")
+def show_threads(message):
+    send_clean(message.from_user.id, "👇 Quyidagi ichki bo'limlardan birini tanlang:", reply_markup=threads_menu())
+
+@bot.message_handler(func=lambda m: m.text == "🎮 Free Fire")
+def show_freefire(message):
+    send_clean(message.from_user.id, "👇 Free Fire UC:", reply_markup=freefire_menu())
+
+@bot.message_handler(func=lambda m: m.text == "⬅️ Orqaga")
+def back_to_main(message):
+    send_clean(message.from_user.id, "Asosiy menyu:", reply_markup=main_menu(message.from_user.id))
 
 # ========================
 # ЗАПУСК
