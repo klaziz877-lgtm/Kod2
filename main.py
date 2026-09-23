@@ -303,7 +303,7 @@ def home():
 TEXTS = {
     "uz": {
         "choose_section": "👇 Quyidagi bo'limlardan birini tanlang:",
-        "welcome": "👋 Assalomu alaykum {name}!\n\n🤖 Bizning SMM botimizga xush kelibsiz:\n\nIjtimoiy tarmoqlar uchun obunachi, like, ko'rishlar va boshqa xizmatlar.\n\n👤 ID raqam: {user_id}",
+        "welcome": "👋 Assalomu alaykum {name}!\n\n🤖 Bizning SMM botimizga xush kelibsiz:\n\nIjtimoiy tarmoqlar uchun obunachi, like, ko'rishlar va boshqa xizmatlar.\n\n👤 ID raqam: {uid}",
         "balance": "💳 Hisobim",
         "topup": "💳 Pul kiritish",
         "bonus": "👥 Referal",
@@ -321,7 +321,7 @@ TEXTS = {
     },
     "ru": {
         "choose_section": "👇 Выберите нужный раздел:",
-        "welcome": "👋 Привет, {name}!\n\n🤖 Добро пожаловать в наш SMM-бот:\n\nНакрутка подписчиков, лайков, просмотров и другие услуги.\n\n👤 Ваш ID: {user_id}",
+        "welcome": "👋 Привет, {name}!\n\n🤖 Добро пожаловать в наш SMM-бот:\n\nНакрутка подписчиков, лайков, просмотров и другие услуги.\n\n👤 Ваш ID: {uid}",
         "balance": "💳 Мой баланс",
         "topup": "💳 Пополнить баланс",
         "bonus": "👥 Реферал",
@@ -487,7 +487,7 @@ def send_welcome(message):
             pass
     send_clean(
         user_id,
-        t(user_id, "welcome", name=user_name, user_id=user_id),
+        t(user_id, "welcome", name=user_name, uid=user_id),
         reply_markup=main_menu(user_id)
     )
 
