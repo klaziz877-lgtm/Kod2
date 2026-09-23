@@ -767,6 +767,157 @@ def setup_webhook():
         print(f"Webhook error: {e}")
 
 setup_webhook()
+# ========================
+# STARS, PREMIUM, GIFT (МЕНЮ)
+# ========================
+@bot.message_handler(func=lambda m: m.text == "⭐ Premium, Stars, Gift")
+def show_premium(message):
+    user_id = message.from_user.id
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    # Stars — пакеты до 1500
+    for key, price, label in get_prices_by_category("stars"):
+        if price > 0:
+            markup.add(types.InlineKeyboardButton(f"⭐ {label} — {price} so'm", callback_data=f"buy_{key}"))
+    # Premium
+    markup.add(types.InlineKeyboardButton("💎 Premium 1 oy", callback_data="buy_premium_1m"))
+    markup.add(types.InlineKeyboardButton("💎 Premium 3 oy", callback_data="buy_premium_3m"))
+    markup.add(types.InlineKeyboardButton("💎 Premium 6 oy", callback_data="buy_premium_6m"))
+    markup.add(types.InlineKeyboardButton("💎 Premium 12 oy", callback_data="buy_premium_12m"))
+    # Ввод своей суммы Stars
+    markup.add(types.InlineKeyboardButton("⭐ Boshqa miqdor (o'zingiz kiriting)", callback_data="stars_custom"))
+    markup.add(types.InlineKeyboardButton("⬅️ Orqaga", callback_data="back_to_services"))
+    send_clean(user_id, "⭐ Premium, Stars, Gift:\n\n👇 Xizmatni tanlang:", reply_markup=markup)
+
+@bot.callback_query_handler(func=lambda call: call.data == "back_to_services")
+def back_to_services(cb):
+    bot.delete_message(cb.from_user.id, cb.message.message_id)
+    send_clean(cb.from_user.id, "🛍 Xizmatlar:", reply_markup=services_menu(cb.from_user.id))
+
+# ========================
+# ВВОД СВОЕЙ СУММЫ STARS
+# ========================
+@bot.callback_query_handler(func=lambda call: call.data == "stars_custom")
+def stars_custom(call):
+    user_id = call.from_user.id
+    bot.answer_callback_query(call.id)
+    send_clean(user_id, "⭐ Nechta Stars kerak? (50 dan 10000 gacha raqam kiriting)", reply_markup=back_kb(user_id))
+    bot.register_next_step_handler_by_chat_id(user_id, lambda msg: process_custom_stars(msg))
+
+def process_custom_stars(message):
+    user_id = message.from_user.id
+    if message.text == t(user_id, "back"):
+        send_clean(user_id, t(user_id, "choose_section"), reply_markup=main_menu(user_id))
+        return
+    try:
+        amount = int(message.text.strip())
+    except ValueError:
+        send_clean(user_id, "❌ Faqat raqam kiriting.", reply_markup=back_kb(user_id))
+        bot.register_next_step_handler_by_chat_id(user_id, lambda msg: process_custom_stars(msg))
+        return
+    if amount < 50 or amount > 10000:
+        send_clean(user_id, "❌ Miqdor 50 dan 10000 gacha bo'lishi kerak.", reply_markup=back_kb(user_id))
+        bot.register_next_step_handler_by_chat_id(user_id, lambda msg: process_custom_stars(msg))
+        return
+    price = amount * 215
+    bal = get_balance(user_id)
+    if bal < price:
+        send_clean(user_id, f"❌ Mablag' yetarli emas. Kerak: {price} so'm, sizda: {bal} so'm.", reply_markup=main_menu(user_id))
+        return
+    update_balance(user_id, -price)
+    conn = db()
+    c = conn.cursor()
+    c.execute("INSERT INTO orders (user_id, service, amount, price, status) VALUES (%s, %s, %s, %s, 'pending') RETURNING id", (user_id, f"Stars {amount}", amount, price))
+    order_id = c.fetchone()[0]
+    conn.commit()
+    c.close()
+    conn.close()
+    send_clean(user_id, f"✅ {amount} Stars uchun buyurtma yaratildi. Admin tez orada bajaradi.", reply_markup=main_menu(user_id))
+    username = message.from_user.username or "yo'q"
+    bot.send_message(ADMIN_ID,
+        f"🆕 Yangi buyurtma!\n"
+        f"Xizmat: Stars {amount}\n"
+        f"User: {user_id}\n"
+        f"Username: @{username}\n"
+        f"Narx: {price} so'm\n"
+        f"Order ID: {order_id}\n\n"
+        f"Qo'lda bajaring va quyidagi tugmani bosing.",
+        reply_markup=types.InlineKeyboardMarkup().add(
+            types.InlineKeyboardButton("✅ Bajarildi", callback_data=f"complete_order_{order_id}")
+        ))
+
+# ========================
+# ПОКУПКА STARS / PREMIUM (РУЧНАЯ)
+# ========================
+@bot.callback_query_handler(func=lambda call: call.data.startswith("buy_"))
+def process_buy(call):
+    user_id = call.from_user.id
+    key = call.data.replace("buy_", "")
+    # Premium 1 месяц — особый случай
+    if key == "premium_1m":
+        bot.answer_callback_query(call.id)
+        bot.send_message(
+            user_id,
+            f"💎 Premium 1 oy\n\n"
+            f"Bu xizmat faqat akkauntga kirish orqali amalga oshiriladi.\n\n"
+            f"Batafsil ma'lumot uchun: {SUPPORT_USERNAME}",
+            reply_markup=main_menu(user_id)
+        )
+        return
+    price = get_price(key)
+    if price == 0:
+        bot.answer_callback_query(call.id, "❌ Bu xizmat narxi hali belgilanmagan.", show_alert=True)
+        return
+    bal = get_balance(user_id)
+    if bal < price:
+        bot.answer_callback_query(call.id, t(user_id, "not_enough", price=price, bal=bal), show_alert=True)
+        return
+    username = call.from_user.username
+    if not username:
+        bot.answer_callback_query(call.id, t(user_id, "no_username"), show_alert=True)
+        return
+    update_balance(user_id, -price)
+    conn = db()
+    c = conn.cursor()
+    c.execute("INSERT INTO orders (user_id, service, amount, price, status) VALUES (%s, %s, %s, %s, 'pending') RETURNING id", (user_id, key, 1, price))
+    order_id = c.fetchone()[0]
+    conn.commit()
+    c.close()
+    conn.close()
+    bot.answer_callback_query(call.id, "✅ Buyurtma yaratildi!")
+    send_clean(user_id, t(user_id, "order_created", service=key), reply_markup=main_menu(user_id))
+    bot.send_message(ADMIN_ID,
+        f"🆕 Yangi buyurtma!\n"
+        f"Xizmat: {key}\n"
+        f"User: {user_id}\n"
+        f"Username: @{username}\n"
+        f"Narx: {price} so'm\n"
+        f"Order ID: {order_id}\n\n"
+        f"Qo'lda bajaring va quyidagi tugmani bosing.",
+        reply_markup=types.InlineKeyboardMarkup().add(
+            types.InlineKeyboardButton("✅ Bajarildi", callback_data=f"complete_order_{order_id}")
+        ))
+
+# ========================
+# ЗАВЕРШЕНИЕ ЗАКАЗА
+# ========================
+@bot.callback_query_handler(func=lambda call: call.data.startswith("complete_order_"))
+def complete_order(call):
+    if call.from_user.id != ADMIN_ID:
+        bot.answer_callback_query(call.id, "❌ Ruxsat yo'q")
+        return
+    order_id = int(call.data.split("_")[2])
+    conn = db()
+    c = conn.cursor()
+    c.execute("UPDATE orders SET status='completed' WHERE id=%s", (order_id,))
+    c.execute("SELECT user_id FROM orders WHERE id=%s", (order_id,))
+    row = c.fetchone()
+    conn.commit()
+    c.close()
+    conn.close()
+    if row:
+        bot.send_message(row[0], f"✅ Buyurtmangiz №{order_id} bajarildi!")
+    bot.edit_message_reply_markup(call.from_user.id, call.message.message_id, reply_markup=None)
+    bot.answer_callback_query(call.id, "✅ Bajarildi deb belgilandi")
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
