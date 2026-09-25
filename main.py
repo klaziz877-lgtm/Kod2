@@ -472,6 +472,14 @@ def send_welcome(message):
     conn.commit()
     c.close()
     conn.close()
+    if not check_subscription(user_id):
+        send_clean(
+            user_id,
+            "⚠️ Botdan foydalanish uchun avval kanalimizga a'zo bo'ling:\n\n"
+            f"👉 {CHANNEL_ID}",
+            reply_markup=subscribe_kb()
+        )
+        return
     args = message.text.split()
     if len(args) > 1 and args[1].startswith("ref_"):
         try:
