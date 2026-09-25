@@ -918,7 +918,288 @@ def complete_order(call):
         bot.send_message(row[0], f"✅ Buyurtmangiz №{order_id} bajarildi!")
     bot.edit_message_reply_markup(call.from_user.id, call.message.message_id, reply_markup=None)
     bot.answer_callback_query(call.id, "✅ Bajarildi deb belgilandi")
+# ========================
+# ПРОВЕРКА ПОДПИСКИ НА КАНАЛ
+# ========================
+CHANNEL_ID = "@ffuz_org"
 
+def check_subscription(user_id):
+    try:
+        member = bot.get_chat_member(CHANNEL_ID, user_id)
+        if member.status in ["member", "administrator", "creator"]:
+            return True
+        return False
+    except Exception as e:
+        print(f"Check subscription error: {e}")
+        return False
+
+def subscribe_kb():
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    markup.add(
+        types.InlineKeyboardButton("📢 Kanalga a'zo bo'lish", url=f"https://t.me/{CHANNEL_ID.replace('@', '')}"),
+        types.InlineKeyboardButton("✅ Tekshirish", callback_data="check_sub")
+    )
+    return markup
+
+@bot.callback_query_handler(func=lambda call: call.data == "check_sub")
+def check_sub_callback(call):
+    user_id = call.from_user.id
+    if check_subscription(user_id):
+        bot.answer_callback_query(call.id, "✅ Rahmat! Endi botdan foydalanishingiz mumkin.")
+        try:
+            bot.delete_message(user_id, call.message.message_id)
+        except:
+            pass
+        send_clean(
+            user_id,
+            t(user_id, "welcome", name=call.from_user.first_name or "do'stim", uid=user_id),
+            reply_markup=main_menu(user_id)
+        )
+    else:
+        bot.answer_callback_query(call.id, "❌ Siz hali kanalga a'zo bo'lmadingiz!", show_alert=True)
+
+# ========================
+# НАКРУТКА — ВЫБОР КОЛИЧЕСТВА
+# ========================
+def nakrutka_kb(user_id, category):
+    markup = types.InlineKeyboardMarkup(row_width=3)
+    options = [100, 500, 1000, 5000, 10000]
+    for opt in options:
+        markup.add(types.InlineKeyboardButton(f"{opt}", callback_data=f"nk_{category}_{opt}"))
+    markup.add(types.InlineKeyboardButton("✏️ Boshqa miqdor", callback_data=f"nk_custom_{category}"))
+    markup.add(types.InlineKeyboardButton("⬅️ Orqaga", callback_data="back_to_services"))
+    return markup
+
+@bot.message_handler(func=lambda m: m.text == "👤 Telegram obunachi")
+def nk_tg_subs(message):
+    send_clean(message.from_user.id, "👇 Nechta obunachi kerak?", reply_markup=nakrutka_kb(message.from_user.id, "tg_subs"))
+
+@bot.message_handler(func=lambda m: m.text == "👁 Prasmotrlar")
+def nk_tg_views(message):
+    send_clean(message.from_user.id, "👇 Nechta prasmotr kerak?", reply_markup=nakrutka_kb(message.from_user.id, "tg_views"))
+
+@bot.message_handler(func=lambda m: m.text == "👍 Reaksiyalar")
+def nk_tg_reactions(message):
+    send_clean(message.from_user.id, "👇 Nechta reaksiya kerak?", reply_markup=nakrutka_kb(message.from_user.id, "tg_reactions"))
+
+@bot.message_handler(func=lambda m: m.text == "👤 Instagram obunachilar")
+def nk_inst_subs(message):
+    send_clean(message.from_user.id, "👇 Nechta obunachi kerak?", reply_markup=nakrutka_kb(message.from_user.id, "inst_subs"))
+
+@bot.message_handler(func=lambda m: m.text == "👁 Prasmotr")
+def nk_inst_views(message):
+    send_clean(message.from_user.id, "👇 Nechta prasmotr kerak?", reply_markup=nakrutka_kb(message.from_user.id, "inst_views"))
+
+@bot.message_handler(func=lambda m: m.text == "❤️ Like")
+def nk_inst_likes(message):
+    send_clean(message.from_user.id, "👇 Nechta like kerak?", reply_markup=nakrutka_kb(message.from_user.id, "inst_likes"))
+
+@bot.message_handler(func=lambda m: m.text == "👤 Tik Tok Obunachi")
+def nk_tt_subs(message):
+    send_clean(message.from_user.id, "👇 Nechta obunachi kerak?", reply_markup=nakrutka_kb(message.from_user.id, "tt_subs"))
+
+@bot.message_handler(func=lambda m: m.text == "👁 Tik Tok Prasmotr")
+def nk_tt_views(message):
+    send_clean(message.from_user.id, "👇 Nechta prasmotr kerak?", reply_markup=nakrutka_kb(message.from_user.id, "tt_views"))
+
+@bot.message_handler(func=lambda m: m.text == "❤️ Tik Tok Like")
+def nk_tt_likes(message):
+    send_clean(message.from_user.id, "👇 Nechta like kerak?", reply_markup=nakrutka_kb(message.from_user.id, "tt_likes"))
+
+@bot.message_handler(func=lambda m: m.text == "👥 You Tube Obunachi")
+def nk_yt_subs(message):
+    send_clean(message.from_user.id, "👇 Nechta obunachi kerak?", reply_markup=nakrutka_kb(message.from_user.id, "yt_subs"))
+
+@bot.message_handler(func=lambda m: m.text == "👁 You Tube Prasmotr")
+def nk_yt_views(message):
+    send_clean(message.from_user.id, "👇 Nechta prasmotr kerak?", reply_markup=nakrutka_kb(message.from_user.id, "yt_views"))
+
+@bot.message_handler(func=lambda m: m.text == "👍 Yoqtirish")
+def nk_yt_likes(message):
+    send_clean(message.from_user.id, "👇 Nechta yoqtirish kerak?", reply_markup=nakrutka_kb(message.from_user.id, "yt_likes"))
+
+@bot.message_handler(func=lambda m: m.text == "👥 Facebook Obunachi")
+def nk_fb_subs(message):
+    send_clean(message.from_user.id, "👇 Nechta obunachi kerak?", reply_markup=nakrutka_kb(message.from_user.id, "fb_subs"))
+
+@bot.message_handler(func=lambda m: m.text == "❤️ Facebook Like")
+def nk_fb_likes(message):
+    send_clean(message.from_user.id, "👇 Nechta like kerak?", reply_markup=nakrutka_kb(message.from_user.id, "fb_likes"))
+
+@bot.message_handler(func=lambda m: m.text == "👥 Threads Obunachi")
+def nk_th_subs(message):
+    send_clean(message.from_user.id, "👇 Nechta obunachi kerak?", reply_markup=nakrutka_kb(message.from_user.id, "th_subs"))
+
+@bot.message_handler(func=lambda m: m.text == "❤️ Threads Like")
+def nk_th_likes(message):
+    send_clean(message.from_user.id, "👇 Nechta like kerak?", reply_markup=nakrutka_kb(message.from_user.id, "th_likes"))
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("nk_"))
+def nk_process(call):
+    if call.data.startswith("nk_custom_"):
+        category = call.data.replace("nk_custom_", "")
+        bot.answer_callback_query(call.id)
+        send_clean(call.from_user.id, "✏️ Nechta kerak? Raqam kiriting:", reply_markup=back_kb(call.from_user.id))
+        bot.register_next_step_handler_by_chat_id(call.from_user.id, lambda msg: nk_custom_step(msg, category))
+        return
+    parts = call.data.split("_")
+    category = "_".join(parts[1:-1])
+    quantity = int(parts[-1])
+    process_nakrutka(call.from_user.id, category, quantity, call.id)
+
+def nk_custom_step(message, category):
+    user_id = message.from_user.id
+    if message.text == t(user_id, "back"):
+        send_clean(user_id, t(user_id, "choose_section"), reply_markup=main_menu(user_id))
+        return
+    try:
+        quantity = int(message.text.strip())
+    except ValueError:
+        send_clean(user_id, "❌ Faqat raqam kiriting.", reply_markup=back_kb(user_id))
+        bot.register_next_step_handler_by_chat_id(user_id, lambda msg: nk_custom_step(msg, category))
+        return
+    process_nakrutka(user_id, category, quantity, None)
+
+SERVICE_NAME_MAP = {
+    "tg_subs": "Telegram Members",
+    "tg_views": "Telegram Views",
+    "tg_reactions": "Telegram Reactions",
+    "inst_subs": "Instagram Followers",
+    "inst_views": "Instagram Views",
+    "inst_likes": "Instagram Likes",
+    "tt_subs": "TikTok Followers",
+    "tt_views": "TikTok Views",
+    "tt_likes": "TikTok Likes",
+    "yt_subs": "YouTube Subscribers",
+    "yt_views": "YouTube Views",
+    "yt_likes": "YouTube Likes",
+    "fb_subs": "Facebook Page Followers",
+    "fb_likes": "Facebook Post Likes",
+    "th_subs": "Threads Followers",
+    "th_likes": "Threads Likes",
+}
+
+def process_nakrutka(user_id, category, quantity, callback_id):
+    search_name = SERVICE_NAME_MAP.get(category, "")
+    conn = db()
+    c = conn.cursor()
+    c.execute("SELECT service_id, rate FROM services WHERE name ILIKE %s LIMIT 1", (f"%{search_name}%",))
+    row = c.fetchone()
+    c.close()
+    conn.close()
+    if not row:
+        if callback_id:
+            bot.answer_callback_query(callback_id, "❌ Xizmat topilmadi")
+        send_clean(user_id, "❌ Bu xizmat hozircha mavjud emas.", reply_markup=main_menu(user_id))
+        return
+    service_id, rate = row
+    rate = float(rate)
+    if callback_id:
+        bot.answer_callback_query(callback_id)
+    send_clean(user_id, "🔗 Havolani yuboring (link):", reply_markup=back_kb(user_id))
+    bot.register_next_step_handler_by_chat_id(user_id, lambda msg: nk_get_link(msg, category, quantity, service_id, rate))
+
+def nk_get_link(message, category, quantity, service_id, rate):
+    user_id = message.from_user.id
+    if message.text == t(user_id, "back"):
+        send_clean(user_id, t(user_id, "choose_section"), reply_markup=main_menu(user_id))
+        return
+    link = message.text.strip()
+    total_price = int(rate * (quantity / 1000) * 1.4)
+    bal = get_balance(user_id)
+    if bal < total_price:
+        send_clean(user_id, t(user_id, "not_enough", price=total_price, bal=bal), reply_markup=main_menu(user_id))
+        return
+    update_balance(user_id, -total_price)
+    resp = neosmm_add_order(service_id, link, quantity)
+    if "order" in resp:
+        conn = db()
+        c = conn.cursor()
+        c.execute("INSERT INTO orders (user_id, service, link, amount, price, status) VALUES (%s, %s, %s, %s, %s, 'processing')",
+                  (user_id, category, link, quantity, total_price))
+        conn.commit()
+        c.close()
+        conn.close()
+        send_clean(user_id, f"✅ Buyurtma yaratildi!\nNEO SMM order: {resp['order']}\nNarx: {total_price} so'm", reply_markup=main_menu(user_id))
+    else:
+        update_balance(user_id, total_price)
+        send_clean(user_id, f"❌ Xatolik: {resp.get('error', 'Unknown')}", reply_markup=main_menu(user_id))
+
+@bot.message_handler(func=lambda m: m.text == "🎮 Free Fire")
+def ff_menu(message):
+    user_id = message.from_user.id
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    for key, price, label in get_prices_by_category("freefire"):
+        markup.add(types.InlineKeyboardButton(f"🎮 {label} — {price} so'm", callback_data=f"buy_{key}"))
+    markup.add(types.InlineKeyboardButton("⬅️ Orqaga", callback_data="back_to_donat"))
+    send_clean(user_id, "🎮 Free Fire:\n\n👇 Mahsulotni tanlang:", reply_markup=markup)
+
+@bot.callback_query_handler(func=lambda call: call.data == "back_to_donat")
+def back_to_donat(cb):
+    bot.delete_message(cb.from_user.id, cb.message.message_id)
+    send_clean(cb.from_user.id, "💎 Donat qilish:", reply_markup=donat_menu(cb.from_user.id))
+
+@bot.message_handler(func=lambda m: m.text == "🔫 PUBG UC")
+def pubg_menu(message):
+    user_id = message.from_user.id
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    for key, price, label in get_prices_by_category("pubg"):
+        markup.add(types.InlineKeyboardButton(f"🔫 {label} — {price} so'm", callback_data=f"buy_{key}"))
+    markup.add(types.InlineKeyboardButton("⬅️ Orqaga", callback_data="back_to_donat"))
+    send_clean(user_id, "🔫 PUBG UC:\n\n👇 Mahsulotni tanlang:", reply_markup=markup)
+
+@bot.message_handler(func=lambda m: m.text == "💎 Mobile Legends")
+def ml_menu(message):
+    user_id = message.from_user.id
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    for key, price, label in get_prices_by_category("ml"):
+        markup.add(types.InlineKeyboardButton(f"💎 {label} — {price} so'm", callback_data=f"buy_{key}"))
+    markup.add(types.InlineKeyboardButton("⬅️ Orqaga", callback_data="back_to_donat"))
+    send_clean(user_id, "💎 Mobile Legends:\n\n👇 Mahsulotni tanlang:", reply_markup=markup)
+
+# ========================
+# ЗАГРУЗКА УСЛУГ ИЗ NEO SMM
+# ========================
+def load_services():
+    try:
+        result = neosmm_services()
+        if not isinstance(result, list):
+            print(f"NEO SMM services error: {result}")
+            return
+        conn = db()
+        c = conn.cursor()
+        for s in result:
+            sid = s.get("service")
+            name = s.get("name", "")
+            rate = s.get("rate", "0")
+            cat = s.get("category", "")
+            c.execute("INSERT INTO services (service_id, name, rate, category) VALUES (%s, %s, %s, %s) ON CONFLICT (service_id) DO UPDATE SET name=%s, rate=%s, category=%s",
+                      (sid, name, rate, cat, name, rate, cat))
+        conn.commit()
+        c.close()
+        conn.close()
+        print(f"✅ Loaded {len(result)} services from NEO SMM")
+    except Exception as e:
+        print(f"❌ load_services error: {e}")
+
+load_services()
+
+
+def setup_webhook():
+    try:
+        time.sleep(3)
+        bot.remove_webhook()
+        render_url = os.environ.get("RENDER_EXTERNAL_URL")
+        if not render_url:
+            raise RuntimeError("RENDER_EXTERNAL_URL not found")
+        webhook_url = f"{render_url}/webhook"
+        bot.set_webhook(url=webhook_url)
+        print(f"Webhook set: {webhook_url}")
+    except Exception as e:
+        print(f"Webhook error: {e}")
+
+
+setup_webhook()
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
