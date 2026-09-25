@@ -75,6 +75,12 @@ def init_db():
         key TEXT PRIMARY KEY,
         value TEXT
     )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS services (
+    service_id BIGINT PRIMARY KEY,
+    name TEXT,
+    rate TEXT,
+    category TEXT
+)""")
     c.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('mode', 'auto')") if False else None
     c.execute("INSERT INTO settings (key, value) VALUES ('mode', 'auto') ON CONFLICT (key) DO NOTHING")
     # Цены по умолчанию (вы измените через админку)
