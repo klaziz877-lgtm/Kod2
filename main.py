@@ -1170,6 +1170,157 @@ def ml_menu(message):
         markup.add(types.InlineKeyboardButton(f"💎 {label} — {price} so'm", callback_data=f"buy_{key}"))
     markup.add(types.InlineKeyboardButton("⬅️ Orqaga", callback_data="back_to_donat"))
     send_clean(user_id, "💎 Mobile Legends:\n\n👇 Mahsulotni tanlang:", reply_markup=markup)
+    # ========================
+# АДМИН-ПАНЕЛЬ
+# ========================
+@bot.message_handler(commands=["admin"])
+def admin_panel(message):
+    if message.from_user.id != ADMIN_ID:
+        bot.send_message(message.from_user.id, "❌ Ruxsat yo'q.")
+        return
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    markup.add(
+        types.InlineKeyboardButton("📊 Statistika", callback_data="adm_stats"),
+        types.InlineKeyboardButton("👥 Foydalanuvchilar", callback_data="adm_users"),
+        types.InlineKeyboardButton("💰 Narxlar Stars", callback_data="adm_stars"),
+        types.InlineKeyboardButton("💎 Narxlar Premium", callback_data="adm_premium"),
+        types.InlineKeyboardButton("🎮 Narxlar Free Fire", callback_data="adm_ff"),
+        types.InlineKeyboardButton("🔫 Narxlar PUBG", callback_data="adm_pubg"),
+        types.InlineKeyboardButton("💎 Narxlar Mobile Legends", callback_data="adm_ml"),
+        types.InlineKeyboardButton("📋 Pending buyurtmalar", callback_data="adm_pending"),
+        types.InlineKeyboardButton("🔄 Rejim: Avto/Ruchnoy", callback_data="adm_mode"),
+        types.InlineKeyboardButton("📢 Rassilka", callback_data="adm_broadcast"),
+        types.InlineKeyboardButton("💵 Balans qo'shish", callback_data="adm_addbal"),
+    )
+    bot.send_message(message.from_user.id, "🛠 Admin-panel:", reply_markup=markup)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("adm_"))
+def admin_actions(call):
+    if call.from_user.id != ADMIN_ID:
+        return
+    action = call.data.replace("adm_", "")
+    if action == "stats":
+        conn = db()
+        c = conn.cursor()
+        c.execute("SELECT COUNT(*) FROM users")
+        users = c.fetchone()[0]
+        c.execute("SELECT COUNT(*) FROM orders")
+        orders_count = c.fetchone()[0]
+        c.execute("SELECT SUM(balance) FROM users")
+        total_bal = c.fetchone()[0] or 0
+        c.execute("SELECT SUM(total_topup) FROM users")
+        total_topup = c.fetchone()[0] or 0
+        c.close()
+        conn.close()
+        bot.send_message(ADMIN_ID, f"📊 Statistika:\n\n👥 Foydalanuvchilar: {users}\n📋 Buyurtmalar: {orders_count}\n💰 Umumiy balans: {total_bal} so'm\n💵 Jami to'ldirilgan: {total_topup} so'm")
+    elif action == "users":
+        conn = db()
+        c = conn.cursor()
+        c.execute("SELECT user_id, balance, lang FROM users ORDER BY user_id DESC LIMIT 20")
+        rows = c.fetchall()
+        c.close()
+        conn.close()
+        text = "👥 Oxirgi 20 foydalanuvchi:\n\n"
+        for uid, bal, lang in rows:
+            text += f"{uid} — {bal} so'm [{lang}]\n"
+        bot.send_message(ADMIN_ID, text)
+    elif action in ["stars", "premium", "ff", "pubg", "ml"]:
+        cat_map = {"stars": "stars", "premium": "premium", "ff": "freefire", "pubg": "pubg", "ml": "ml"}
+        cat = cat_map[action]
+        conn = db()
+        c = conn.cursor()
+        c.execute("SELECT key, value, label FROM prices WHERE category=%s ORDER BY value ASC", (cat,))
+        rows = c.fetchall()
+        c.close()
+        conn.close()
+        text = f"💰 Narxlar [{cat}]:\n\n"
+        for k, v, label in rows:
+            text += f"{k} — {v} so'm ({label})\n"
+        text += "\n✏️ O'zgartirish uchun: `key=value`\nMasalan: `stars_100=15000`"
+        bot.send_message(ADMIN_ID, text, parse_mode="Markdown")
+    elif action == "pending":
+        conn = db()
+        c = conn.cursor()
+        c.execute("SELECT id, user_id, service, price FROM orders WHERE status='pending' ORDER BY id DESC LIMIT 20")
+        rows = c.fetchall()
+        c.close()
+        conn.close()
+        if not rows:
+            bot.send_message(ADMIN_ID, "📋 Pending buyurtmalar yo'q.")
+            return
+        text = "📋 Pending buyurtmalar:\n\n"
+        for oid, uid, service, price in rows:
+            text += f"№{oid} — {service} — {uid} — {price} so'm\n"
+        bot.send_message(ADMIN_ID, text)
+    elif action == "mode":
+        current = get_setting("mode") or "auto"
+        markup = types.InlineKeyboardMarkup(row_width=1)
+        markup.add(
+            types.InlineKeyboardButton(f"Avto (hozir: {'✅' if current == 'auto' else ''})", callback_data="setmode_auto"),
+            types.InlineKeyboardButton(f"Ruchnoy (hozir: {'✅' if current == 'manual' else ''})", callback_data="setmode_manual"),
+            types.InlineKeyboardButton("⬅️ Orqaga", callback_data="adm_back"),
+        )
+        bot.send_message(ADMIN_ID, f"🔄 Hozirgi rejim: {current}", reply_markup=markup)
+    elif action == "broadcast":
+        bot.send_message(ADMIN_ID, "📢 Rassilka uchun matn yuboring:")
+        bot.register_next_step_handler_by_chat_id(ADMIN_ID, do_broadcast)
+    elif action == "addbal":
+        bot.send_message(ADMIN_ID, "💵 Format: `user_id summa`\nMasalan: `123456789 50000`", parse_mode="Markdown")
+        bot.register_next_step_handler_by_chat_id(ADMIN_ID, do_add_balance)
+    elif action == "back":
+        admin_panel(call.message)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("setmode_"))
+def set_mode(call):
+    if call.from_user.id != ADMIN_ID:
+        return
+    mode = call.data.replace("setmode_", "")
+    set_setting("mode", mode)
+    bot.answer_callback_query(call.id, f"✅ Rejim: {mode}")
+    bot.edit_message_text(f"🔄 Rejim o'zgartirildi: {mode}", call.from_user.id, call.message.message_id)
+
+def do_broadcast(message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    text = message.text
+    conn = db()
+    c = conn.cursor()
+    c.execute("SELECT user_id FROM users")
+    users = c.fetchall()
+    c.close()
+    conn.close()
+    success = 0
+    for (uid,) in users:
+        try:
+            bot.send_message(uid, text)
+            success += 1
+        except:
+            pass
+    bot.send_message(ADMIN_ID, f"✅ Rassilka yuborildi: {success}/{len(users)}")
+
+def do_add_balance(message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    try:
+        parts = message.text.split()
+        uid = int(parts[0])
+        amount = int(parts[1])
+        update_balance(uid, amount)
+        bot.send_message(ADMIN_ID, f"✅ {uid} ga {amount} so'm qo'shildi.")
+        bot.send_message(uid, f"✅ Balansingiz {amount} so'mga to'ldirildi!")
+    except Exception as e:
+        bot.send_message(ADMIN_ID, f"❌ Xatolik: {e}")
+
+@bot.message_handler(func=lambda m: m.from_user.id == ADMIN_ID and "=" in m.text)
+def admin_set_price(message):
+    try:
+        key, value = message.text.split("=")
+        key = key.strip()
+        value = int(value.strip())
+        set_price(key, value)
+        bot.reply_to(message, f"✅ {key} narxi {value} so'mga o'zgartirildi")
+    except Exception as e:
+        bot.reply_to(message, f"❌ Xatolik: {e}")
 
 # ========================
 # ЗАГРУЗКА УСЛУГ ИЗ NEO SMM
